@@ -2,5 +2,6 @@ papers/
 .venv/
 data/
 Direct_Diffusion/out/
+Direct_Diffusion/__pycache__/
 sketch_tesi.pdf
 sketch_tesi.xopp

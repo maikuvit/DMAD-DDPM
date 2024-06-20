@@ -273,6 +273,7 @@ class upBlock(nn.Module):
         return x
     
 # unet 
+# unet 
 
 class unet(nn.Module):
 
@@ -294,12 +295,15 @@ class unet(nn.Module):
         )
 
         self.input_conv = nn.Conv2d(in_channels, self.down_channels[0], 3, padding=1)
+        self.conditional_conv = nn.Conv2d(in_channels, self.down_channels[0], 3, padding=1)
+
         self.down_blocks = nn.ModuleList()
 
         for i in range(len(self.down_channels ) - 1): # 0 1 2 3 [32,64,128,256]
             self.down_blocks.append( 
                 downBlock(self.down_channels[i], self.down_channels[i+1], self.emb_dim,self.downsample[i], num_layers)
             )
+           #print("DOWNBLOCKS with shapes: ",self.down_channels[i], self.down_channels[i + 1], i,self.downsample[i])
         self.mid_blocks = nn.ModuleList()
 
         for i in range(len(self.middle_channels) - 1):
@@ -308,11 +312,13 @@ class unet(nn.Module):
             )
 
         self.up_blocks = nn.ModuleList()
+#                self.down_channels = [32,64,128,256] 
 
         for i in range(len(self.up_channels) - 1):
             self.up_blocks.append(
                 upBlock(self.up_channels[i], self.up_channels[i+1], self.emb_dim, self.upsample[i], num_layers)
             )
+           #print("UPBLOCKS with shapes: ",self.up_channels[i], self.up_channels[i + 1], i, self.upsample[i])
         
 
         # final conversion to same shape as input ...
@@ -321,10 +327,17 @@ class unet(nn.Module):
 
 
 
-    def forward(self, x, t_embs):
+    # adding c to condition ...
+    def forward(self, x, t_embs, c = None):
         x = self.input_conv(x)
+       #print("INPUT CONV SHAPE:", x.shape)
         downblock_outs = []
+        #downblock_outs.append(x)
 
+        #trying the averaging with conditional ... 
+        if c is not None:
+            c = self.conditional_conv(c)
+            x = (x + c ) / 2.0
 
         t_embs = get_time_embeddings(t_embs, self.emb_dim)
         t_embs = self.time_proj(t_embs)
@@ -332,18 +345,22 @@ class unet(nn.Module):
         for i in range(len(self.down_blocks)):
             downblock_outs.append(x)
             x = self.down_blocks[i](x, t_embs)
+           #print("DOWNBLOCK SHAPES: " , x.shape, i)
         
-        with open('downblock_outs_sizes.txt', 'w') as f:
-            for i, block_out in enumerate(downblock_outs):
-                f.write(f"downblock_outs[{i}]: {block_out.shape}\n")
-        
+
+        #downblock_outs.pop() # remove last element from list (256)
         for i in range(len(self.mid_blocks)):
             x = self.mid_blocks[i](x, t_embs)
+           #print("MIDBLOCK SHAPES: " , x.shape, i)
         
         for i in range(len(self.up_blocks)): # 0 1 2  [32,64,128,256]
             dout = downblock_outs.pop()
+           #print("DOUT SHAPE:", dout.shape, i)
+           #print("X SHAPE:", x.shape, i)   
             x = self.up_blocks[i](x, dout , t_embs)
+           #print("UPBLOCK SHAPES: " , x.shape, i)
         
+       #print("OK HERE WITH SHAPES:", x.shape)
         x = self.output_norm(x)
         x = self.activation(x)
         x = self.output_conv(x)
