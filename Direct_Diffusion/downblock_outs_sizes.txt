@@ -1,4 +1,0 @@
-downblock_outs[0]: torch.Size([8, 32, 28, 28])
-downblock_outs[1]: torch.Size([8, 32, 28, 28])
-downblock_outs[2]: torch.Size([8, 64, 14, 14])
-downblock_outs[3]: torch.Size([8, 128, 7, 7])

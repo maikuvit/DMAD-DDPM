@@ -1,5 +1,6 @@
 papers/
 .venv/
 data/
+Direct_Diffusion/out/
 sketch_tesi.pdf
 sketch_tesi.xopp
