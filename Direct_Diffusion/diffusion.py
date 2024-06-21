@@ -337,7 +337,7 @@ class unet(nn.Module):
         #trying the averaging with conditional ... 
         if c is not None:
             c = self.conditional_conv(c)
-            x = (x + c ) / 2.0
+            x = (x * .3 + c * .7 )
 
         t_embs = get_time_embeddings(t_embs, self.emb_dim)
         t_embs = self.time_proj(t_embs)
