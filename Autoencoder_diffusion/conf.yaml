@@ -1,0 +1,18 @@
+autoencoder:
+  webhook: 'https://webhook.site/3eae17a4-9b31-4b57-b350-6678ee7dcd4b'
+  pretrained_path : 'pretrained/vgg_face_dag_NEW.pth'
+  dataset_path : '/data/michele/dataset_files.txt'
+  batch_size: 32
+  epochs: 30
+  output_path : 'out_ae'
+  freeze_encoder : True
+
+finetuning:
+  webhook: 'https://webhook.site/3eae17a4-9b31-4b57-b350-6678ee7dcd4b'
+  batch_size: 32
+  epochs: 1
+  learning_rate: 0.005
+  model_input : 'out_ae/ae_Casia_5.pth'
+  output_path : 'out_ft'
+  freeze_encoder : False
+  dataset_path : "/data/michele/IST-MDB/bonafide"
