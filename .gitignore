@@ -5,3 +5,6 @@ Direct_Diffusion/out/
 Direct_Diffusion/__pycache__/
 sketch_tesi.pdf
 sketch_tesi.xopp
+Autoencoder_diffusion/pretrained/VGG_FACE.t7
+Autoencoder_diffusion/pretrained/vgg_face_dag.pth
+Autoencoder_diffusion/pretrained/vgg_face_dag_NEW.pth

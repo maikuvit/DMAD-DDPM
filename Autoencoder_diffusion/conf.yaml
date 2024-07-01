@@ -9,8 +9,8 @@ autoencoder:
 
 finetuning:
   webhook: 'https://webhook.site/3eae17a4-9b31-4b57-b350-6678ee7dcd4b'
-  batch_size: 32
-  epochs: 1
+  batch_size: 64
+  epochs: 50
   learning_rate: 0.005
   model_input : 'out_ae/ae_Casia_5.pth'
   output_path : 'out_ft'
