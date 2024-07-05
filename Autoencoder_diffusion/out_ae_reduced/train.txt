@@ -1,0 +1,7 @@
+Finished epoch:1 | Loss : 0.0309 | Learning Rate: 0.01 | Eval loss: 0.05715043097734451
+Finished epoch:2 | Loss : 0.0156 | Learning Rate: 0.01 | Eval loss: 0.03085755743086338
+Finished epoch:3 | Loss : 0.0142 | Learning Rate: 0.01 | Eval loss: 0.03064310839528374
+Finished epoch:4 | Loss : 0.0112 | Learning Rate: 0.01 | Eval loss: 0.011729808524250984
+Finished epoch:5 | Loss : 0.0114 | Learning Rate: 0.01 | Eval loss: 0.014616964384913445
+Finished epoch:6 | Loss : 0.0101 | Learning Rate: 0.01 | Eval loss: 0.01719936914741993
+Finished epoch:7 | Loss : 0.0098 | Learning Rate: 0.01 | Eval loss: 0.02206595614552498

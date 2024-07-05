@@ -28,7 +28,7 @@ OUTPUT_PATH = None
 DATASET_PATH = None
 PRETRAINED_PATH = None
 device = None
-
+STARTING_CHECKPOINT = None
 
 def increasingLoss(losses):
     if len(losses) < 3:
@@ -72,10 +72,25 @@ class autoencoder(nn.Module):
             nn.ConvTranspose2d(64, 3, kernel_size=3,stride=2, padding=1,  output_padding=1),
         )
 
+        self.downscaler = nn.Sequential(
+            nn.Conv2d(256, 128, kernel_size=3, stride=2, padding=1 ),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
+        )
+
+        self.upscaler = nn.Sequential(
+            nn.ConvTranspose2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(128, 256, kernel_size=3, stride=2, padding=1, output_padding=1),
+        )
+
+
     def forward(self, x):
         x = self.encoder(x)
+        x = self.downscaler(x)
         x = self.latent_space(x)
-        x = torch.reshape(x, (x.shape[0], 256, 56, 56))
+        x = torch.reshape(x, (x.shape[0], 64, 28, 28))
+        x = self.upscaler(x)
         x = self.decoder(x)
         return x
     
@@ -83,13 +98,25 @@ class autoencoder(nn.Module):
         for param in self.encoder.parameters():
             param.requires_grad = not freeze
 
+    def freeze_decoder(self,freeze = True):
+        for param in self.decoder.parameters():
+            param.requires_grad = not freeze
+
+    def get_encoder(self):
+        return self.encoder
+    
+    def get_decoder(self):
+        return self.decoder
+
     def get_embeddings(self, x):
         x = self.encoder(x)
+        x = self.downscaler(x)
         x = self.latent_space(x)
         return x
     
     def embeddings_to_out(self,x):
-        x = torch.reshape(x, (x.shape[0], 256, 56, 56))
+        x = torch.reshape(x, (x.shape[0], 64, 28, 28)) # [64, 64, 28,28] -> 64 x 28 x 28 = 50176 -> 1 x 224 x 224
+        x = self.upscaler(x)
         x = self.decoder(x)
         return x
     
@@ -97,16 +124,18 @@ class autoencoder(nn.Module):
         for module in self.modules():
             if isinstance(module, nn.BatchNorm2d):
                 module.requires_grad_ = not Freeze
+
+
     
 def evaluate_epoch(model,dataset,device):
     model.eval()
-
+    print("~~~ evaluating ~~~")
     ssim = StructuralSimilarityIndexMeasure(data_range=1).to(device)
     mse = nn.MSELoss().to(device)
     running_vloss = 0.0
 
     with torch.no_grad():
-        for img in (dataset):
+        for img in tqdm(dataset):
             img = img.to(device)
             out = model(img).to(device)
             vloss = 1 - ssim(out, img) + mse(out, img)
@@ -139,10 +168,10 @@ def train(model, dataset, eval_set):
     eval_set = DataLoader(eval_set, batch_size=BATCH_SIZE, shuffle=True)
 
     # Create output directories
-    if not os.path.exists("out"):
-        os.mkdir("out")
+    if not os.path.exists(OUTPUT_PATH):
+        os.mkdir(OUTPUT_PATH)
     
-    learning_rate = 0.01
+    learning_rate = LEARNING_RATE
     last_epoch_change = 0
     # Specify training parameters
     optimizer = Adam(model.parameters(), lr=learning_rate)
@@ -198,7 +227,7 @@ def train(model, dataset, eval_set):
         eval_losses.append(eval_loss)
 
         result = ('Finished epoch:{} | Loss : {:.4f} | Learning Rate: {} | Eval loss: {}'.format(
-            epoch_idx + 1,
+            STARTING_CHECKPOINT + epoch_idx + 1,
             np.mean(losses),
             learning_rate,
             eval_loss
@@ -208,10 +237,10 @@ def train(model, dataset, eval_set):
         print(result)
 
         torch.save(model.state_dict(), os.path.join(OUTPUT_PATH,
-                                                    "ae_Casia_{}.pth".format(epoch_idx)))
+                                                    "ae_Casia_{}.pth".format(STARTING_CHECKPOINT + epoch_idx + 1)))
         if early_stopper.early_stop(eval_loss):
             print('Early stopping')
-            break
+            #break
     
     print('Done Training ...')
 
@@ -267,6 +296,10 @@ if __name__ == '__main__':
     OUTPUT_PATH = conf['autoencoder']['output_path']
     DATASET_PATH = conf['autoencoder']['dataset_path']
     PRETRAINED_PATH = conf['autoencoder']['pretrained_path']
+    LEARNING_RATE = conf['autoencoder']['learning_rate']
+    STARTING_CHECKPOINT = conf['autoencoder']['starting_checkpoint']
+    FREEZE_ENCODER = conf['autoencoder']['freeze_encoder']
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = torchvision.models.vgg16(pretrained=False)
@@ -278,9 +311,11 @@ if __name__ == '__main__':
     print('Using device:', device)
 
     model = autoencoder(encoder).to(device)
-    model.load_state_dict(torch.load('out_ae/ae_Casia_2.pth'))
+    if STARTING_CHECKPOINT != None and STARTING_CHECKPOINT > 0:
+        model.load_state_dict(torch.load(os.path.join(OUTPUT_PATH, f"ae_Casia_{STARTING_CHECKPOINT}.pth")))
+        print(f"Loaded model from checkpoint {OUTPUT_PATH}/ae_Casia_{STARTING_CHECKPOINT}.pth")
 
-    model.freeze_encoder()
+    model.freeze_encoder(FREEZE_ENCODER)
     ds = CasiaDataset(DATASET_PATH)
 
     train_size = int(0.8 * len(ds))
@@ -290,6 +325,7 @@ if __name__ == '__main__':
     starting_message = f"\nStarting training with {len(train_ds)} training samples and {len(test_ds)} test samples.\n~~ Parameters ~~\nBatch size: {BATCH_SIZE}\nEpochs: {EPOCHS}\nDevice: {device}\n"
 
     send_webHook(URL, starting_message)
+    print(starting_message)
     del starting_message
     try:
         train(model, train_ds, test_ds)
