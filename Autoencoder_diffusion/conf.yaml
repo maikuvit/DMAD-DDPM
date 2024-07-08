@@ -22,14 +22,25 @@ finetuning:
   starting_checkpoint : 0
 
 diffusion:
-  webhook: 'https://webhook.site/5538a797-4246-4a58-8756-09c5cc2e5b50'
-  batch_size: 32
+  webhook: 'https://webhook.site/15787deb-2ac5-4e40-9b34-3318a38ce7fe'
+  batch_size: 2
   epochs: 30
-  learning_rate: 0.01
+  learning_rate: 0.05
   model_input : 'out_ft_reduced/ae_IST_MDB_200.pth'
   output_path : 'out_diffusion_reduced'
   freeze_encoder : True
-  freeze_decoder : False
-  dataset_path : "/data/michele/IST-MDB/complete"
+  freeze_decoder : True
+  bonafide_path : "/data/michele/IST-MDB/bonafide"
+  morphs_path : "/data/michele/IST-MDB/morphs"
   starting_checkpoint : 0
-  forward_steps: 200
+  forward_steps: 50
+  noise_coefficient: 1.1 
+  unet:
+    down_block: [32,64,128,256]
+    middle_block: [256,256,128]
+    up_block: [128,64,32,16]
+    down_sample: [True, True, False]
+
+    
+
+

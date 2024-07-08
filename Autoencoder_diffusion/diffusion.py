@@ -1,13 +1,15 @@
-#### module that contains all the required classes and functions for the diffusion model
-import torch 
+import torch
 import torch.nn as nn
 
+
+# linear space noise, might be moved to a non-linear space later 
 class NoiseScheduler():
 
     def __init__(self, noise_start, noise_end,steps):
         self.beta_start = noise_start
         self.beta_end = noise_end
         self.noise_steps = steps 
+        self.device = "cpu" #default fallback, override in .to(...) method
         self.betas = torch.linspace(self.beta_start, self.beta_end, self.noise_steps)
 
         #define alphas and precompute values ... 
@@ -34,6 +36,7 @@ class NoiseScheduler():
         return sqrt_alpha_cumprod * img + inv_sqrt_alpha_cumprod * noise
     
     def to(self, device):
+        self.device = device
         
         self.betas = self.betas.to(device)
 
@@ -58,9 +61,13 @@ class NoiseScheduler():
         variance = (1 - self.alpha_cumprod[t-1]) / (1 - self.alpha_cumprod[t])
         variance = variance * self.betas[t]
         
-        z = torch.randn(xt.shape)
+        z = torch.randn(xt.shape).to(self.device)
+
+        # i want to free the used memory ...
+        del xt, noise_prediction
 
         return mean + (variance ** .5) * z, x0
+
 
 def get_time_embeddings(time_steps, emb_dim):
 
@@ -75,6 +82,7 @@ def get_time_embeddings(time_steps, emb_dim):
     t_emb = time_steps[:, None].repeat(1, emb_dim // 2) / factor
     t_emb = torch.cat([torch.sin(t_emb), torch.cos(t_emb)], dim=-1)
     return t_emb
+
 
 class resnetBlock(nn.Module):
     
@@ -132,7 +140,7 @@ class selfAttentionBlock(nn.Module):
         return x
     
 class downBlock(nn.Module):
-    def __init__(self,in_channels, out_channels, emb_dim, downsample , activation ,num_layers = 1):
+    def __init__(self,in_channels, out_channels, emb_dim, downsample ,num_layers = 1):
         super().__init__()
         self.num_layers = num_layers
         self.downsample = downsample
@@ -140,11 +148,11 @@ class downBlock(nn.Module):
         self.down_sample_conv = nn.Conv2d(out_channels, out_channels, 4, 2, 1) if self.downsample else nn.Identity()
 
         self.resnet = nn.ModuleList([
-            resnetBlock(in_channels if i == 0 else out_channels, out_channels, emb_dim, activation)
+            resnetBlock(in_channels if i == 0 else out_channels, out_channels, emb_dim)
             for i in range(num_layers)
         ])
         self.selfatt =nn.ModuleList([
-            selfAttentionBlock(out_channels, out_channels, 4, activation)
+            selfAttentionBlock(out_channels, out_channels, 4)
             for _ in range(num_layers)
             ])
 
@@ -157,18 +165,18 @@ class downBlock(nn.Module):
         return x
     
 class middleBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, emb_dim,activation, num_layers=1):
+    def __init__(self, in_channels, out_channels, emb_dim, num_layers=1):
         super().__init__()
         self.num_layers = num_layers
 
         self.initialResnet = resnetBlock(in_channels, out_channels, emb_dim)
         
         self.resnet = nn.ModuleList([
-            resnetBlock(out_channels, out_channels, emb_dim, activation)
+            resnetBlock(out_channels, out_channels, emb_dim)
             for _ in range(num_layers)
         ])
         self.selfatt = nn.ModuleList([
-            selfAttentionBlock(out_channels, out_channels, 4, activation)
+            selfAttentionBlock(out_channels, out_channels, 4)
             for _ in range(num_layers)
         ])
 
@@ -183,7 +191,7 @@ class middleBlock(nn.Module):
 
 
 class upBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, emb_dim, upsample,activation, num_layers=1):
+    def __init__(self, in_channels, out_channels, emb_dim, upsample, num_layers=1):
         super().__init__()
         self.num_layers = num_layers
         self.upsample = upsample
@@ -192,12 +200,12 @@ class upBlock(nn.Module):
 
 
         self.resnet = nn.ModuleList([
-            resnetBlock(in_channels if i == 0 else out_channels, out_channels, emb_dim, activation)
+            resnetBlock(in_channels if i == 0 else out_channels, out_channels, emb_dim)
             for i in range(num_layers)
         ])
         
         self.selfatt = nn.ModuleList([
-            selfAttentionBlock(out_channels, out_channels, 4, activation)
+            selfAttentionBlock(out_channels, out_channels, 4)
             for _ in range(num_layers)
         ])
 
@@ -209,15 +217,17 @@ class upBlock(nn.Module):
             x = self.selfatt[i](x)
         return x
     
+# unet 
+# unet 
 
 class unet(nn.Module):
 
-    def __init__(self, in_channels, down_channels, middle_channels, up_channels, downsample, activation = nn.LeakyReLU(), layers_activation = nn.LeakyReLU(), num_layers=1):
+    def __init__(self, in_channels,activation = nn.LeakyReLU(), layers_activation = nn.LeakyReLU(), num_layers=1):
         super().__init__()
-        self.down_channels = down_channels      #[32,64,128,256] 
-        self.middle_channels = middle_channels  #[256,256,128]
-        self.up_channels = up_channels          #[128,64,32,16]
-        self.downsample = downsample            #[True, True, False]
+        self.down_channels = [32,64,128,256] 
+        self.middle_channels = [256,256,128]
+        self.up_channels = [128,64,32,16]
+        self.downsample = [True, True, False]
         self.upsample = list(reversed(self.downsample))
         self.emb_dim = 128
         self.num_layers = num_layers
@@ -260,21 +270,25 @@ class unet(nn.Module):
         self.output_norm = nn.GroupNorm(8,self.up_channels[-1])
         self.output_conv = nn.Conv2d(self.up_channels[-1], in_channels, 3, padding=1)
 
-
-    def forward(self, x, t):
+    # adding c to condition ...
+    def forward(self, x, t_embs, c = None):
         x = self.input_conv(x)
        #print("INPUT CONV SHAPE:", x.shape)
         downblock_outs = []
         #downblock_outs.append(x)
 
-        t_embs = get_time_embeddings(t, self.emb_dim)
+        #trying the averaging with conditional ... 
+        if c is not None:
+            c = self.conditional_conv(c)
+            x = (x * .3 + c * .7 )
+
+        t_embs = get_time_embeddings(t_embs, self.emb_dim)
         t_embs = self.time_proj(t_embs)
         
         for i in range(len(self.down_blocks)):
             downblock_outs.append(x)
             x = self.down_blocks[i](x, t_embs)
            #print("DOWNBLOCK SHAPES: " , x.shape, i)
-        
 
         #downblock_outs.pop() # remove last element from list (256)
         for i in range(len(self.mid_blocks)):
@@ -293,3 +307,8 @@ class unet(nn.Module):
         x = self.activation(x)
         x = self.output_conv(x)
         return x
+
+
+
+
+
