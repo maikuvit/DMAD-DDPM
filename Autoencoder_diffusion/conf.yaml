@@ -1,33 +1,33 @@
 autoencoder:
-  webhook: 'https://webhook.site/5538a797-4246-4a58-8756-09c5cc2e5b50'
+  webhook: 'https://webhook.site/a446a922-0ed5-4849-b868-6c3c5bd7dff6'
   pretrained_path : 'pretrained/vgg_face_dag_NEW.pth'
   dataset_path : '/data/michele/dataset_files.txt'
   batch_size: 128
   learning_rate: 0.01
   epochs: 30
-  output_path : 'out_ae_reduced'
+  output_path : 'out_ae_reduced_x4'
   freeze_encoder : True
-  starting_checkpoint : 3
+  starting_checkpoint : 0
 
 finetuning:
-  webhook: 'https://webhook.site/5538a797-4246-4a58-8756-09c5cc2e5b50'
-  batch_size: 128
+  webhook: 'https://webhook.site/a446a922-0ed5-4849-b868-6c3c5bd7dff6'
+  batch_size: 64
   epochs: 200
   learning_rate: 0.05
-  model_input : 'out_ae_reduced/ae_Casia_7.pth'
-  output_path : 'out_ft_reduced'
+  model_input : 'out_ae_reduced_x4/ae_Casia_30.pth'
+  output_path : 'out_ft_reduced_x4f'
   freeze_encoder : True
   freeze_decoder : False
   dataset_path : "/data/michele/IST-MDB/bonafide"
   starting_checkpoint : 0
 
 diffusion:
-  webhook: 'https://webhook.site/15787deb-2ac5-4e40-9b34-3318a38ce7fe'
-  batch_size: 2
-  epochs: 30
+  webhook: 'https://webhook.site/ad63fe74-98d2-45c6-a1e7-73e5508f3138'
+  batch_size: 8
+  epochs: 128
   learning_rate: 0.05
-  model_input : 'out_ft_reduced/ae_IST_MDB_200.pth'
-  output_path : 'out_diffusion_reduced'
+  model_input : 'out_ae_reduced_x4/ae_Casia_30.pth'
+  output_path : 'out_diffusion_reduced_x4'
   freeze_encoder : True
   freeze_decoder : True
   bonafide_path : "/data/michele/IST-MDB/bonafide"

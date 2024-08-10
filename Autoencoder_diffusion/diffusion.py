@@ -216,8 +216,7 @@ class upBlock(nn.Module):
             x = self.resnet[i](x, t_embs)
             x = self.selfatt[i](x)
         return x
-    
-# unet 
+     
 # unet 
 
 class unet(nn.Module):

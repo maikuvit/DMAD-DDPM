@@ -75,11 +75,19 @@ class autoencoder(nn.Module):
         self.downscaler = nn.Sequential(
             nn.Conv2d(256, 128, kernel_size=3, stride=2, padding=1 ),
             nn.LeakyReLU(inplace=True),
-            nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 64, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
         )
 
         self.upscaler = nn.Sequential(
-            nn.ConvTranspose2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.ConvTranspose2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(inplace=True),
+            nn.ConvTranspose2d(64, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.LeakyReLU(inplace=True),
             nn.ConvTranspose2d(128, 256, kernel_size=3, stride=2, padding=1, output_padding=1),
         )
@@ -88,8 +96,9 @@ class autoencoder(nn.Module):
     def forward(self, x):
         x = self.encoder(x)
         x = self.downscaler(x)
+        #print(x.shape)
         x = self.latent_space(x)
-        x = torch.reshape(x, (x.shape[0], 64, 28, 28))
+        x = torch.reshape(x, (x.shape[0], 16, 14, 14))
         x = self.upscaler(x)
         x = self.decoder(x)
         return x
@@ -115,7 +124,7 @@ class autoencoder(nn.Module):
         return x
     
     def embeddings_to_out(self,x):
-        x = torch.reshape(x, (x.shape[0], 64, 28, 28)) # [64, 64, 28,28] -> 64 x 28 x 28 = 50176 -> 1 x 224 x 224
+        x = torch.reshape(x, (x.shape[0], 16, 14, 14)) # [1, 16, 14, 14] -> 16 * 14 * 14 = 3136 -> 1 x 56 x 56
         x = self.upscaler(x)
         x = self.decoder(x)
         return x
