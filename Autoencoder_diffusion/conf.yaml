@@ -1,11 +1,11 @@
 autoencoder:
-  webhook: 'https://webhook.site/a446a922-0ed5-4849-b868-6c3c5bd7dff6'
+  webhook: 'https://webhook.site/59bfc262-7b2f-4402-a2b9-49bdaf127c7a'
   pretrained_path : 'pretrained/vgg_face_dag_NEW.pth'
   dataset_path : '/data/michele/dataset_files.txt'
   batch_size: 128
   learning_rate: 0.01
   epochs: 30
-  output_path : 'out_ae_reduced_x4'
+  output_path : 'out_ae_reduced_x4_norm'
   freeze_encoder : True
   starting_checkpoint : 0
 
@@ -22,18 +22,18 @@ finetuning:
   starting_checkpoint : 0
 
 diffusion:
-  webhook: 'https://webhook.site/ad63fe74-98d2-45c6-a1e7-73e5508f3138'
+  webhook: 'https://webhook.site/b7abc036-b679-42f3-b510-a83c4edf5900'
   batch_size: 8
-  epochs: 128
-  learning_rate: 0.05
-  model_input : 'out_ae_reduced_x4/ae_Casia_30.pth'
+  epochs: 80
+  learning_rate: 0.5
+  model_input : 'out_ae_reduced_x4_norm/ae_Casia_30.pth'
   output_path : 'out_diffusion_reduced_x4'
   freeze_encoder : True
   freeze_decoder : True
   bonafide_path : "/data/michele/IST-MDB/bonafide"
   morphs_path : "/data/michele/IST-MDB/morphs"
   starting_checkpoint : 0
-  forward_steps: 50
+  forward_steps: 20
   noise_coefficient: 1.1 
   unet:
     down_block: [32,64,128,256]

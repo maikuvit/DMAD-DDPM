@@ -239,7 +239,11 @@ class unet(nn.Module):
         )
 
         self.input_conv = nn.Conv2d(in_channels, self.down_channels[0], 3, padding=1)
-        self.conditional_conv = nn.Conv2d(in_channels, self.down_channels[0], 3, padding=1)
+        self.conditional_emb = nn.Sequential(
+            nn.Conv2d(in_channels, self.down_channels[0], 3, padding=1),
+            nn.Conv2d(self.down_channels[0], self.down_channels[1], kernel_size=3, stride=2, padding=1) ,
+            nn.Conv2d(self.down_channels[1], self.down_channels[2], kernel_size=3, stride=2, padding=1)
+            )
 
         self.down_blocks = nn.ModuleList()
 
@@ -271,15 +275,15 @@ class unet(nn.Module):
 
     # adding c to condition ...
     def forward(self, x, t_embs, c = None):
+
+
+
         x = self.input_conv(x)
-       #print("INPUT CONV SHAPE:", x.shape)
+
         downblock_outs = []
         #downblock_outs.append(x)
 
-        #trying the averaging with conditional ... 
-        if c is not None:
-            c = self.conditional_conv(c)
-            x = (x * .3 + c * .7 )
+
 
         t_embs = get_time_embeddings(t_embs, self.emb_dim)
         t_embs = self.time_proj(t_embs)
@@ -288,11 +292,22 @@ class unet(nn.Module):
             downblock_outs.append(x)
             x = self.down_blocks[i](x, t_embs)
            #print("DOWNBLOCK SHAPES: " , x.shape, i)
-
+        #print(x.isnan().any())
         #downblock_outs.pop() # remove last element from list (256)
         for i in range(len(self.mid_blocks)):
             x = self.mid_blocks[i](x, t_embs)
            #print("MIDBLOCK SHAPES: " , x.shape, i)
+        
+        #print(x.isnan().any())
+        #conditional embeddings ... 
+
+        if c is not None:
+            #print(c.isnan().any())
+            c = self.conditional_emb(c)
+            x = torch.add(x, c)
+
+            #print(x.isnan().any())
+            #print(x)
         
         for i in range(len(self.up_blocks)): # 0 1 2  [32,64,128,256]
             dout = downblock_outs.pop()
